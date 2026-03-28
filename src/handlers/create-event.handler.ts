@@ -1,6 +1,6 @@
 import { IntentType, type IntentHandler, type CalendarEventInput } from "../core/types.js";
-import { CalendarConflictError } from "../core/errors.js";
 import { parseDateTimeInTz } from "../core/date-utils.js";
+import { formatTime } from "./_utils.js";
 
 export const createEventHandler: IntentHandler = {
   intentType: IntentType.CREATE_EVENT,
@@ -91,11 +91,3 @@ export const createEventHandler: IntentHandler = {
   },
 };
 
-function formatTime(date: Date, tz?: string): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: tz,
-  });
-}

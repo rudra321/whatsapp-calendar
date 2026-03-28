@@ -1,5 +1,6 @@
 import { IntentType, type IntentHandler, type CalendarEventUpdate } from "../core/types.js";
 import { parseDateTimeInTz } from "../core/date-utils.js";
+import { formatTime, fuzzyMatchEvent } from "./_utils.js";
 
 export const updateEventHandler: IntentHandler = {
   intentType: IntentType.UPDATE_EVENT,
@@ -65,37 +66,3 @@ export const updateEventHandler: IntentHandler = {
   },
 };
 
-function fuzzyMatchEvent(events: import("../core/types.js").CalendarEvent[], query: string) {
-  const exact = events.find((e) => e.title.toLowerCase().includes(query));
-  if (exact) return exact;
-
-  const stopWords = new Set(["at", "the", "a", "an", "in", "on", "for", "to", "my", "is", "pm", "am", "with"]);
-  const queryWords = query.split(/\s+/).filter((w) => w.length > 1 && !stopWords.has(w));
-  if (queryWords.length === 0) return null;
-
-  let bestMatch: import("../core/types.js").CalendarEvent | null = null;
-  let bestScore = 0;
-
-  for (const event of events) {
-    const title = event.title.toLowerCase();
-    let score = 0;
-    for (const word of queryWords) {
-      if (title.includes(word)) score++;
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = event;
-    }
-  }
-
-  return bestMatch;
-}
-
-function formatTime(date: Date, tz?: string): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: tz,
-  });
-}

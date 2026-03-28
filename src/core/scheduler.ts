@@ -4,6 +4,8 @@ import type { LoggerPort } from "../ports/logger.port.js";
 import type { EventBus } from "./events.js";
 import { DomainEventType } from "./types.js";
 import type { UserRegistry } from "./user-registry.js";
+import { startOfDayInTz, endOfDayInTz, todayInTz } from "./date-utils.js";
+import { formatTime } from "../handlers/_utils.js";
 
 export interface SchedulerDeps {
   userRegistry: UserRegistry;
@@ -16,7 +18,7 @@ export interface SchedulerDeps {
 }
 
 export class Scheduler {
-  private readonly sentReminders = new Set<string>();
+  private readonly sentReminders = new Map<string, number>(); // key → timestamp
   private jobs: Cron[] = [];
 
   constructor(private readonly deps: SchedulerDeps) {}
@@ -60,10 +62,9 @@ export class Scheduler {
 
     for (const user of userRegistry.getAll()) {
       try {
-        const startDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
-        const endDate = new Date();
-        endDate.setHours(23, 59, 59, 999);
+        const today = todayInTz(user.timezone);
+        const startDate = startOfDayInTz(today, user.timezone);
+        const endDate = endOfDayInTz(today, user.timezone);
 
         const events = await user.calendar.listEvents({ startDate, endDate });
 
@@ -82,7 +83,7 @@ export class Scheduler {
             .map((e) => {
               const time = e.isAllDay
                 ? "All day"
-                : `${formatTime(e.startTime)} - ${formatTime(e.endTime)}`;
+                : `${formatTime(e.startTime, user.timezone)} - ${formatTime(e.endTime, user.timezone)}`;
               const location = e.location ? ` @ ${e.location}` : "";
               return `• ${time} — ${e.title}${location}`;
             })
@@ -130,7 +131,7 @@ export class Scheduler {
           if (minutesUntil <= 15 && minutesUntil > 0) {
             const reminderKey = `${user.phoneNumber}:${event.id}-15`;
             if (this.sentReminders.has(reminderKey)) continue;
-            this.sentReminders.add(reminderKey);
+            this.sentReminders.set(reminderKey, Date.now());
 
             await notification.sendNotification({
               userId: user.phoneNumber,
@@ -150,17 +151,11 @@ export class Scheduler {
       }
     }
 
-    // Clean up old reminders (keep set from growing unbounded)
-    if (this.sentReminders.size > 500) {
-      this.sentReminders.clear();
+    // Clean up reminders older than 1 hour
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    for (const [key, timestamp] of this.sentReminders) {
+      if (timestamp < oneHourAgo) this.sentReminders.delete(key);
     }
   }
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}

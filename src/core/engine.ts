@@ -20,7 +20,7 @@ export interface EngineDeps {
 const MAX_HISTORY = 30;
 
 export class Engine {
-  private readonly processedMessages = new LRUSet<string>(1000);
+  private readonly processedMessages = new FIFOSet<string>(1000);
   private readonly conversationHistory = new Map<string, ConversationMessage[]>();
 
   constructor(private readonly deps: EngineDeps) {}
@@ -146,8 +146,8 @@ export class Engine {
   }
 }
 
-// Simple LRU set for deduplication
-class LRUSet<T> {
+// Simple FIFO set for deduplication — evicts oldest entry when full
+class FIFOSet<T> {
   private items: T[] = [];
 
   constructor(private readonly maxSize: number) {}

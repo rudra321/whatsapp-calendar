@@ -1,5 +1,6 @@
 import { IntentType, type IntentHandler } from "../core/types.js";
 import { startOfDayInTz, endOfDayInTz, todayInTz } from "../core/date-utils.js";
+import { formatEventList } from "./_utils.js";
 
 export const dailySummaryHandler: IntentHandler = {
   intentType: IntentType.DAILY_SUMMARY,
@@ -31,18 +32,7 @@ export const dailySummaryHandler: IntentHandler = {
       return { responseText: response };
     }
 
-    const eventList = events
-      .map((e) => {
-        const time = e.isAllDay
-          ? "All day"
-          : `${formatTime(e.startTime, tz)} - ${formatTime(e.endTime, tz)}`;
-        const details = [e.title];
-        if (e.location) details.push(`at ${e.location}`);
-        if (e.attendees?.length) details.push(`with ${e.attendees.join(", ")}`);
-        if (e.meetLink) details.push(`meet: ${e.meetLink}`);
-        return `${time}: ${details.join(" | ")}`;
-      })
-      .join("\n");
+    const eventList = formatEventList(events, tz);
 
     const response = await ai.generateResponse(
       `[SYSTEM: calendar check] ${dateStr}, ${events.length} event(s):\n${eventList}`,
@@ -53,11 +43,3 @@ export const dailySummaryHandler: IntentHandler = {
   },
 };
 
-function formatTime(date: Date, tz?: string): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: tz,
-  });
-}
